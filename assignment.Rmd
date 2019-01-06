@@ -1,0 +1,98 @@
+---
+title: "Machine Learning for prediction of Human Activity"
+author: "Falguni Ghosh"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(e1071)
+library(randomForest)
+library(caret)
+```
+##
+Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+## Get Data
+
+Data for this assignment comes from [Groupare@LES Project for Human Activity Recognition](http://groupware.les.inf.puc-rio.br/har). There are 2 CSV files - one with training data and second with testing data.
+
+> In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. We load the data first.
+
+```{r loadData}
+training <- read.csv("pml-training.csv")
+testing <- read.csv("pml-testing.csv")
+str(training)
+```
+
+## Goal
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+```{r factors}
+levels(training$user_name)
+levels(training$classe)
+```
+
+## Cleaning Data
+
+We will first remove the data containing the missing i.e. NA values
+
+```{r cleanup}
+training <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+training <- training[, colSums(is.na(training)) == 0]
+testing <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+testing <- testing[, colSums(is.na(testing)) == 0]
+names(training)
+```
+
+Now, the exploratory analysis part to understand movements of different body parts with different exercises.
+
+```{r exploratoryPlots, echo=FALSE}
+featurePlot(x = training[,c("roll_belt", "pitch_belt", "yaw_belt", "total_accel_belt")], y = training$classe, plot = "box")
+featurePlot(x = training[,c("roll_forearm", "pitch_forearm", "yaw_forearm", "total_accel_forearm")], y = training$classe, plot = "box")
+featurePlot(x = training[,c("roll_arm", "pitch_arm", "yaw_arm", "total_accel_arm")], y = training$classe, plot = "box")
+```
+
+## Prediction Model
+
+We will use random forest model. Applying it on the belt.
+
+```{r modelBeltRF}
+modBelt_rf <- train(classe ~ roll_belt + pitch_belt + yaw_belt, method = "rf", data = training, ntree = 20)
+predBelt_rf <- predict(modBelt_rf, training)
+sum(training$classe == predBelt_rf) / length(predBelt_rf)
+```
+
+Now applying it on the forearm.
+
+```{r modelForearmRF}
+modForearm_rf <- train(classe ~ roll_forearm + pitch_forearm + yaw_forearm, method = "rf", data = training, ntree = 20)
+predForearm_rf <- predict(modForearm_rf, training)
+sum(training$classe == predForearm_rf) / length(predForearm_rf)
+```
+
+The belt result was satisfactory, the forearm result not so much because of the expectation of primary movement in curl.Not so good, mainly because one would expect the forearm to be the primary movement in the curl. Movement in other less-involved parts of body increases the error.
+
+Applying on the arm:
+
+```{r modelArmRF}
+modArm_rf <- train(classe ~ roll_arm + pitch_arm + yaw_arm, method = "rf", data = training, ntree = 20)
+predArm_rf <- predict(modArm_rf, training)
+sum(training$classe == predArm_rf) / length(predArm_rf)
+```
+
+Other modelling methods trial gave lower accuracy.
+
+## Testing
+
+Prediction model applied to testing dataset.
+
+```{r testiModels}
+predBeltTest <- predict(modBelt_rf, testing)
+predForearmTest <- predict(modForearm_rf, testing)
+predArmTest <- predict(modArm_rf, testing)
+table(predBeltTest, predForearmTest, predArmTest)
+```
